@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>팀 건강도 딥다이브 워크숍</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+
+    <main id="app-container">
+        <header class="app-header">
+            <h1 class="logo">🚀 Team Health Workshop</h1>
+            <div class="progress-track"><div id="progress-bar" class="progress-fill"></div></div>
+        </header>
+
+        <!-- Step 1: Survey -->
+        <section id="step-1" class="step active fade-in">
+            <h2>팀 건강도 진단</h2>
+            <p class="subtitle">현재 우리 팀의 상태를 가장 잘 나타내는 점수를 선택해주세요.</p>
+            <div class="glass-panel">
+                <h3 id="survey-area-title" class="area-title mb-4"></h3>
+                <div id="survey-questions"></div>
+            </div>
+            <div class="actions split">
+                <button id="btn-survey-prev" class="btn btn-outline" style="visibility:hidden">이전</button>
+                <button id="btn-survey-next" class="btn btn-primary" disabled>다음</button>
+            </div>
+        </section>
+
+        <!-- Step 2: Results -->
+        <section id="step-2" class="step fade-in" style="display:none">
+            <h2>진단 리포트</h2>
+            <p class="subtitle">입력하신 결과를 바탕으로 팀의 강점과 취약점을 분석했습니다.</p>
+            <div class="glass-panel">
+                <div class="chart-wrapper" style="max-width: 400px; margin: 0 auto;">
+                    <canvas id="radarChart"></canvas>
+                </div>
+                <div id="score-cards" class="cards-grid"></div>
+            </div>
+            <div class="actions right">
+                <button id="btn-to-dilemma" class="btn btn-primary">취약 영역 심층 분석하기</button>
+            </div>
+        </section>
+
+        <!-- Step 3: Dilemma Selection -->
+        <section id="step-3" class="step fade-in" style="display:none">
+            <h2>핵심 딜레마 선택</h2>
+            <p class="subtitle">우리가 겪고 있는 가장 공감되는 딜레마 상황 하나를 골라주세요.</p>
+            <div class="glass-panel">
+                <h3 id="vuln-area-display" class="mb-4 text-center" style="color:var(--danger)"></h3>
+                <div id="dilemma-list" class="dilemma-grid"></div>
+            </div>
+            <div class="actions right">
+                <button id="btn-start-workshop" class="btn btn-primary" disabled>AI 코칭 워크숍 시작</button>
+            </div>
+        </section>
+
+        <!-- Step 4: AI Workshop -->
+        <section id="step-4" class="step fade-in" style="display:none">
+            <h2>AI 코치와 함께하는 솔루션 도출</h2>
+            <div class="dilemma-sticky-header">
+                <span class="badge">해결해야 할 딜레마</span>
+                <p id="active-dilemma-text" style="font-size: 1.1rem; line-height: 1.5; margin-top:0.5rem"></p>
+            </div>
+            
+            <div class="glass-panel workshop-panel">
+                <div class="question-header mb-4">
+                    <h3 id="workshop-q-title" style="color: var(--primary-hover)"></h3>
+                    <p id="workshop-q-desc" style="font-size: 1.2rem; margin-top: 0.5rem"></p>
+                </div>
+
+                <div class="tab-system">
+                    <div class="tabs">
+                        <button class="tab-btn active" data-tab="tab-write">📝 내 답변 작성</button>
+                        <button class="tab-btn" data-tab="tab-hint">💡 AI 추천 답변</button>
+                        <button class="tab-btn" id="tab-feedback-btn" data-tab="tab-feedback" disabled>✨ AI 피드백</button>
+                    </div>
+
+                    <div class="tab-content">
+                        <!-- Write Tab -->
+                        <div id="tab-write" class="tab-pane active">
+                            <textarea id="answer-input" placeholder="이곳에 자유롭게 작성해주세요. AI 추천 탭을 눌러 영감을 얻을 수도 있습니다!"></textarea>
+                            <div class="actions right mt-3">
+                                <button id="btn-submit-answer" class="btn btn-primary" disabled>답변 전송 & 코칭 받기</button>
+                            </div>
+                        </div>
+
+                        <!-- Hint Tab -->
+                        <div id="tab-hint" class="tab-pane">
+                            <div id="hint-empty-state" class="text-center py-4">
+                                <p style="font-size: 1.1rem; color: #e2e8f0;">어떻게 써야 할지 고민되신다면 AI의 통찰력을 빌려보세요!</p>
+                                <button id="btn-load-hints" class="btn btn-outline mt-3">추천 답변 불러오기</button>
+                            </div>
+                            <div id="hint-loading" class="text-center py-4" style="display:none">
+                                <span class="loader"></span>
+                                <p class="mt-3 text-muted">수만 건의 유사 사례를 바탕으로 최적의 답변을 생성 중입니다...</p>
+                            </div>
+                            <div id="hint-results" class="hint-list" style="display:none"></div>
+                        </div>
+
+                        <!-- Feedback Tab -->
+                        <div id="tab-feedback" class="tab-pane">
+                            <div class="feedback-card">
+                                <h4>🤖 AI 전략 코치의 피드백</h4>
+                                <div id="feedback-content" class="feedback-prose"></div>
+                                <div class="actions right mt-4">
+                                    <button id="btn-next-question" class="btn btn-success">다음 단계로 이동</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Step 5: Final Report -->
+        <section id="step-5" class="step fade-in" style="display:none">
+            <h2>조직문화 솔루션 캔버스</h2>
+            <p class="subtitle">모든 분석을 종합하여 도출한 한 장의 핵심 전략 리포트입니다.</p>
+            
+            <div class="glass-panel mb-4">
+                <h3>1. 진단결과 요약</h3>
+                <div id="final-scores" class="cards-grid mini mt-3"></div>
+            </div>
+
+            <div class="glass-panel mb-4">
+                <h3>2. 워크숍 기록</h3>
+                <div class="dilemma-sticky-header mb-3" style="margin-bottom: 1rem;">
+                    <p id="final-dilemma-block" style="margin:0"></p>
+                </div>
+                <ul class="discussion-list mt-3">
+                    <li><strong>Q1. 마음읽기:</strong> <span id="final-a1"></span></li>
+                    <li><strong>Q2. 관점넓히기:</strong> <span id="final-a2"></span></li>
+                    <li><strong>Q3. 행동약속:</strong> <span id="final-a3" class="highlight-action"></span></li>
+                </ul>
+            </div>
+
+            <div class="glass-panel highlight-panel">
+                <h3>3. 컨설턴트 인사이트 리포트</h3>
+                <div id="final-report-content" class="report-prose mt-3"></div>
+            </div>
+
+            <div class="actions center mt-5">
+                <button class="btn btn-outline" onclick="location.reload()">처음부터 다시하기</button>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Global Loading Overlay -->
+    <div id="global-loading" class="overlay" style="display:none">
+        <div class="loader-box">
+            <span class="loader lg"></span>
+            <p id="loading-msg" class="mt-3">동기화 중...</p>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast">잠시 후 다시 시도해주세요.</div>
+
+    <script src="app.js"></script>
+</body>
+</html>
