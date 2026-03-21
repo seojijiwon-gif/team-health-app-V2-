@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <body>
     <div class="blob blob-1"></div>
@@ -120,32 +121,35 @@
 
         <!-- Step 5: Final Report -->
         <section id="step-5" class="step fade-in" style="display:none">
-            <h2>조직문화 솔루션 캔버스</h2>
-            <p class="subtitle">모든 분석을 종합하여 도출한 한 장의 핵심 전략 리포트입니다.</p>
-            
-            <div class="glass-panel mb-4">
-                <h3>1. 진단결과 요약</h3>
-                <div id="final-scores" class="cards-grid mini mt-3"></div>
-            </div>
-
-            <div class="glass-panel mb-4">
-                <h3>2. 워크숍 기록</h3>
-                <div class="dilemma-sticky-header mb-3" style="margin-bottom: 1rem;">
-                    <p id="final-dilemma-block" style="margin:0"></p>
+            <div id="report-capture-area" style="padding: 2rem; background: var(--bg-color); border-radius: 16px;">
+                <h2>조직문화 솔루션 캔버스</h2>
+                <p class="subtitle">모든 분석을 종합하여 도출한 한 장의 핵심 전략 리포트입니다.</p>
+                
+                <div class="glass-panel mb-4">
+                    <h3>1. 진단결과 요약</h3>
+                    <div id="final-scores" class="cards-grid mini mt-3"></div>
                 </div>
-                <ul class="discussion-list mt-3">
-                    <li><strong>Q1. 마음읽기:</strong> <span id="final-a1"></span></li>
-                    <li><strong>Q2. 관점넓히기:</strong> <span id="final-a2"></span></li>
-                    <li><strong>Q3. 행동약속:</strong> <span id="final-a3" class="highlight-action"></span></li>
-                </ul>
+
+                <div class="glass-panel mb-4">
+                    <h3>2. 워크숍 기록</h3>
+                    <div class="dilemma-sticky-header mb-3" style="margin-bottom: 1rem;">
+                        <p id="final-dilemma-block" style="margin:0"></p>
+                    </div>
+                    <ul class="discussion-list mt-3">
+                        <li><strong>Q1. 마음읽기:</strong> <span id="final-a1"></span></li>
+                        <li><strong>Q2. 관점넓히기:</strong> <span id="final-a2"></span></li>
+                        <li><strong>Q3. 행동약속:</strong> <span id="final-a3" class="highlight-action"></span></li>
+                    </ul>
+                </div>
+
+                <div class="glass-panel highlight-panel">
+                    <h3>3. 컨설턴트 인사이트 리포트</h3>
+                    <div id="final-report-content" class="report-prose mt-3"></div>
+                </div>
             </div>
 
-            <div class="glass-panel highlight-panel">
-                <h3>3. 컨설턴트 인사이트 리포트</h3>
-                <div id="final-report-content" class="report-prose mt-3"></div>
-            </div>
-
-            <div class="actions center mt-5">
+            <div class="actions center mt-5" data-html2canvas-ignore>
+                <button id="btn-download-img" class="btn btn-primary" style="background: #e879f9; color: #fff;">리포트 이미지 저장 📸</button>
                 <button class="btn btn-outline" onclick="location.reload()">처음부터 다시하기</button>
             </div>
         </section>

@@ -68,6 +68,33 @@ function showToast(msg) {
     setTimeout(() => toast.classList.remove('show'), 4000);
 }
 
+// ----------------------------------------------------
+// Image Export Logic
+// ----------------------------------------------------
+document.getElementById('btn-download-img').addEventListener('click', async () => {
+    const targetArea = document.getElementById('report-capture-area');
+    showToast("이미지를 생성 중입니다. 잠시만 기다려주세요...");
+    
+    try {
+        const canvas = await html2canvas(targetArea, {
+            scale: 2, // 고해상도 리포트
+            backgroundColor: '#0d0f17', // 다크모드 배경색 매칭
+            logging: false,
+            useCORS: true
+        });
+        
+        const link = document.createElement('a');
+        link.download = '팀_건강도_솔루션_리포트.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+        
+        showToast("이미지 저장이 완료되었습니다! 🎉");
+    } catch (err) {
+        console.error("html2canvas err:", err);
+        showToast("이미지 저장 중 오류가 발생했습니다.");
+    }
+});
+
 function showGlobalLoading(msg) {
     document.getElementById('loading-msg').innerText = msg;
     document.getElementById('global-loading').style.display = 'flex';
