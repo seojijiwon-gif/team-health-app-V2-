@@ -1,12 +1,10 @@
-// api/feedback.js
-// Google Gemini 1.5 API Integration
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
   const { type, dilemma, question, stepLabel, answer, a1, a2, a3 } = req.body;
-  const apiKey = process.env.GEMINI_API_KEY;./models/gemini-1.5-flash-latest:generateContent?...
+  const apiKey = process.env.GEMINI_API_KEY;
 
   if (!apiKey) {
     return res.status(500).json({ error: '서버 환경변수 오류: GEMINI_API_KEY가 등록되지 않았습니다.' });
@@ -63,7 +61,7 @@ module.exports = async function handler(req, res) {
         generationConfig: { response_mime_type: "application/json" }
     };
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
@@ -83,4 +81,4 @@ module.exports = async function handler(req, res) {
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
-}
+};
