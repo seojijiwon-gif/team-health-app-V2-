@@ -6,7 +6,7 @@ export default async function handler(req, res) {
   }
 
   const { type, dilemma, question, stepLabel, answer, a1, a2, a3 } = req.body;
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY;./models/gemini-1.5-flash-latest:generateContent?...
 
   if (!apiKey) {
     return res.status(500).json({ error: '서버 환경변수 오류: GEMINI_API_KEY가 등록되지 않았습니다.' });
