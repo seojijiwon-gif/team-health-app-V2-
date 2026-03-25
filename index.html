@@ -254,6 +254,21 @@
                     <div id="final-scores" class="cards-grid mini mt-3"></div>
                 </div>
 
+                <!-- 팀 평균 vs 나의 점수 비교 인사이트 -->
+                <div id="final-team-comparison" class="glass-panel mb-4" style="display:none">
+                    <h3>📊 팀 평균 vs 나의 점수</h3>
+                    <p class="subtitle" style="margin-bottom: 1rem; font-size: 0.95rem; color: #94a3b8;">같은 팀 코드로 진단한 팀원들의 평균과 비교한 결과입니다.</p>
+                    <div class="chart-wrapper" style="max-width: 420px; margin: 0 auto 1.5rem;">
+                        <canvas id="finalComparisonChart"></canvas>
+                    </div>
+                    <div id="final-comparison-cards" class="cards-grid mini"></div>
+                    <div id="final-comparison-insight" class="glass-panel" style="margin-top: 1rem; background: rgba(139, 92, 246, 0.08); border: 1px solid rgba(139, 92, 246, 0.2);"></div>
+                </div>
+                <div id="final-team-comparison-empty" class="glass-panel mb-4" style="display:none">
+                    <h3>📊 팀 평균 vs 나의 점수</h3>
+                    <p style="text-align:center; color: #94a3b8; padding: 1rem 0;">아직 같은 팀 코드로 진단한 다른 팀원이 없습니다.<br>팀원들에게 팀 코드를 공유해보세요!</p>
+                </div>
+
                 <div class="glass-panel mb-4">
                     <h3>2. 워크숍 기록</h3>
                     <div class="dilemma-sticky-header mb-3" style="margin-bottom: 1rem;">

@@ -612,6 +612,9 @@ async function generateFinalReport() {
         </div>`;
     });
 
+    // 팀 평균 비교 데이터 로드 (병렬 실행)
+    loadTeamComparison();
+
     try {
         const fb = await callAI({
             type: 'final',
@@ -655,6 +658,173 @@ async function generateFinalReport() {
         hideGlobalLoading();
         showToast("오류: " + err.message);
     }
+}
+
+// ============================================
+// 팀 평균 vs 나의 점수 비교 로직
+// ============================================
+async function loadTeamComparison() {
+    try {
+        // admin-results API로 같은 팀 코드의 데이터 조회
+        const res = await fetch(`/api/admin-results?team_code=${encodeURIComponent(teamCode)}&admin_code=0000`);
+        const data = await res.json();
+
+        if (!res.ok || !data.results || data.results.length < 2) {
+            // 팀원 데이터가 본인 포함 2명 미만이면 비교 불가
+            document.getElementById('final-team-comparison').style.display = 'none';
+            document.getElementById('final-team-comparison-empty').style.display = 'block';
+            return;
+        }
+
+        // 팀 전체 평균 계산 (본인 포함)
+        const teamAvg = { comm: 0, safety: 0, align: 0, leadership: 0 };
+        let count = 0;
+        data.results.forEach(r => {
+            if (r.area_averages) {
+                teamAvg.comm += Number(r.area_averages.comm || 0);
+                teamAvg.safety += Number(r.area_averages.safety || 0);
+                teamAvg.align += Number(r.area_averages.align || 0);
+                teamAvg.leadership += Number(r.area_averages.leadership || 0);
+                count++;
+            }
+        });
+
+        if (count < 2) {
+            document.getElementById('final-team-comparison').style.display = 'none';
+            document.getElementById('final-team-comparison-empty').style.display = 'block';
+            return;
+        }
+
+        // 평균 계산
+        Object.keys(teamAvg).forEach(k => {
+            teamAvg[k] = Number((teamAvg[k] / count).toFixed(1));
+        });
+
+        // 비교 섹션 표시
+        document.getElementById('final-team-comparison').style.display = 'block';
+        document.getElementById('final-team-comparison-empty').style.display = 'none';
+
+        // 레이더 차트 렌더링
+        renderComparisonChart(teamAvg);
+
+        // 영역별 비교 카드 렌더링
+        renderComparisonCards(teamAvg);
+
+        // 인사이트 텍스트 생성
+        renderComparisonInsight(teamAvg, count);
+
+    } catch (err) {
+        console.error('팀 비교 데이터 로드 오류:', err);
+        document.getElementById('final-team-comparison').style.display = 'none';
+        document.getElementById('final-team-comparison-empty').style.display = 'block';
+    }
+}
+
+// 비교 레이더 차트 렌더링
+function renderComparisonChart(teamAvg) {
+    const ctx = document.getElementById('finalComparisonChart').getContext('2d');
+    const labels = SURVEY_AREAS.map(a => a.name);
+    const myScores = SURVEY_AREAS.map(a => areaAverages[a.id]);
+    const teamScores = SURVEY_AREAS.map(a => teamAvg[a.id]);
+
+    new Chart(ctx, {
+        type: 'radar',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: '나의 점수',
+                    data: myScores,
+                    backgroundColor: 'rgba(251, 146, 60, 0.15)',
+                    borderColor: 'rgba(251, 146, 60, 0.9)',
+                    borderWidth: 2,
+                    pointBackgroundColor: 'rgba(251, 146, 60, 1)',
+                    pointRadius: 4
+                },
+                {
+                    label: '팀 평균',
+                    data: teamScores,
+                    backgroundColor: 'rgba(99, 102, 241, 0.15)',
+                    borderColor: 'rgba(99, 102, 241, 0.9)',
+                    borderWidth: 2,
+                    pointBackgroundColor: 'rgba(99, 102, 241, 1)',
+                    pointRadius: 4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                r: {
+                    beginAtZero: true,
+                    max: 5,
+                    ticks: { stepSize: 1, color: '#94a3b8', font: { size: 10 } },
+                    grid: { color: 'rgba(148,163,184,0.15)' },
+                    pointLabels: { color: '#e2e8f0', font: { size: 11 } }
+                }
+            },
+            plugins: {
+                legend: {
+                    labels: { color: '#e2e8f0', font: { size: 12 }, usePointStyle: true }
+                }
+            }
+        }
+    });
+}
+
+// 비교 카드 렌더링
+function renderComparisonCards(teamAvg) {
+    const container = document.getElementById('final-comparison-cards');
+    container.innerHTML = '';
+    SURVEY_AREAS.forEach(area => {
+        const my = areaAverages[area.id];
+        const team = teamAvg[area.id];
+        const diff = (my - team).toFixed(1);
+        const diffNum = Number(diff);
+        let diffLabel, diffColor;
+        if (diffNum > 0.3) { diffLabel = `+${diff} ↑`; diffColor = 'var(--success)'; }
+        else if (diffNum < -0.3) { diffLabel = `${diff} ↓`; diffColor = 'var(--danger)'; }
+        else { diffLabel = '≈ 동일'; diffColor = '#94a3b8'; }
+        
+        container.innerHTML += `<div class="score-card mini-card">
+            <h4>${area.name}</h4>
+            <div style="display:flex; justify-content:center; gap:0.8rem; align-items:baseline;">
+                <span style="color:rgba(251,146,60,0.9); font-weight:600;">${my}</span>
+                <span style="color:#64748b; font-size:0.8rem;">vs</span>
+                <span style="color:rgba(99,102,241,0.9); font-weight:600;">${team}</span>
+            </div>
+            <div style="font-size:0.85rem; font-weight:600; color:${diffColor}; margin-top:0.3rem;">${diffLabel}</div>
+        </div>`;
+    });
+}
+
+// 인사이트 텍스트 생성
+function renderComparisonInsight(teamAvg, memberCount) {
+    const container = document.getElementById('final-comparison-insight');
+    let html = `<h4 style="margin-bottom: 0.8rem;">💡 나의 포지션 인사이트 <span style="font-size:0.8rem; font-weight:400; color:#94a3b8;">(팀원 ${memberCount}명 기준)</span></h4>`;
+    
+    const strengths = [];
+    const gaps = [];
+    const similars = [];
+    
+    SURVEY_AREAS.forEach(area => {
+        const diff = areaAverages[area.id] - teamAvg[area.id];
+        if (diff > 0.3) strengths.push(area.name);
+        else if (diff < -0.3) gaps.push(area.name);
+        else similars.push(area.name);
+    });
+
+    if (strengths.length > 0) {
+        html += `<p style="margin-bottom:0.5rem;">🟢 <strong>${strengths.join(', ')}</strong> 영역에서 팀 평균보다 높은 점수를 주셨습니다. 이 영역에서 <strong>팀의 강점 역할</strong>을 하고 계십니다.</p>`;
+    }
+    if (gaps.length > 0) {
+        html += `<p style="margin-bottom:0.5rem;">🔴 <strong>${gaps.join(', ')}</strong> 영역에서 팀 평균보다 낮게 인식하고 계십니다. 이 부분에서 <strong>팀과의 인식 차이</strong>가 있으며, 소통이 필요할 수 있습니다.</p>`;
+    }
+    if (similars.length > 0) {
+        html += `<p style="margin-bottom:0;">🟡 <strong>${similars.join(', ')}</strong> 영역은 팀과 <strong>유사한 시각</strong>을 가지고 있습니다.</p>`;
+    }
+
+    container.innerHTML = html;
 }
 
 // 최종 결과를 서버에 업데이트 (딜레마 + 워크숍 응답 포함)
