@@ -114,6 +114,61 @@
             border-color: #ef4444;
         }
 
+        /* 일괄 삭제 바 */
+        .bulk-action-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.8rem 1rem;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--panel-border);
+            border-radius: 10px;
+            margin-bottom: 1rem;
+        }
+        .bulk-action-bar .left {
+            display: flex;
+            align-items: center;
+            gap: 0.7rem;
+        }
+        .bulk-action-bar label {
+            color: #e2e8f0;
+            font-size: 0.9rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+        .bulk-action-bar .selected-count {
+            color: #94a3b8;
+            font-size: 0.85rem;
+        }
+        .btn-bulk-delete {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            color: #ef4444;
+            font-size: 0.9rem;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-family: var(--font-family);
+            transition: all 0.2s ease;
+        }
+        .btn-bulk-delete:hover {
+            background: rgba(239, 68, 68, 0.2);
+        }
+        .btn-bulk-delete:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+        .member-checkbox {
+            width: 18px;
+            height: 18px;
+            accent-color: #f59e0b;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
         /* 팀 정보 헤더 */
         .team-info-bar {
             display: flex;
@@ -374,6 +429,13 @@
 
             <!-- 탭 1: 개별 진단 결과 -->
             <div id="tab-individual" class="admin-tab-pane active">
+                <div id="bulk-action-bar" class="bulk-action-bar" style="display:none">
+                    <div class="left">
+                        <label><input type="checkbox" id="select-all-checkbox" class="member-checkbox"> 전체 선택</label>
+                        <span id="selected-count" class="selected-count">0개 선택</span>
+                    </div>
+                    <button id="btn-bulk-delete" class="btn-bulk-delete" disabled>🗑️ 선택 삭제</button>
+                </div>
                 <div id="individual-list"></div>
             </div>
 
@@ -653,7 +715,10 @@
                 container.innerHTML += `
                 <div class="member-card" id="card-${r.id}">
                     <div class="member-header">
-                        <div class="member-name">👤 ${r.user_name || '이름 없음'}</div>
+                        <div class="member-name" style="display:flex; align-items:center; gap:0.6rem;">
+                            <input type="checkbox" class="member-checkbox item-checkbox" data-id="${r.id}" data-name="${(r.user_name || '이름 없음').replace(/"/g, '&quot;')}">
+                            👤 ${r.user_name || '이름 없음'}
+                        </div>
                         <div style="display:flex; align-items:center; gap:0.8rem;">
                             <div class="member-date">${r.created_at ? formatDate(r.created_at) : ''}</div>
                             <button class="btn-delete" onclick="deleteResponse('${r.id}', '${(r.user_name || '이름 없음').replace(/'/g, "\\'")}')"
@@ -664,6 +729,88 @@
                     ${detailSection}
                 </div>`;
             });
+
+            // 일괄 삭제 바 표시 및 이벤트 바인딩
+            const bulkBar = document.getElementById('bulk-action-bar');
+            bulkBar.style.display = responses.length > 0 ? 'flex' : 'none';
+            
+            const selectAll = document.getElementById('select-all-checkbox');
+            const btnBulkDelete = document.getElementById('btn-bulk-delete');
+            selectAll.checked = false;
+
+            // 선택 카운트 업데이트 함수
+            function updateSelectionCount() {
+                const checked = document.querySelectorAll('.item-checkbox:checked');
+                const total = document.querySelectorAll('.item-checkbox');
+                document.getElementById('selected-count').innerText = `${checked.length}개 선택`;
+                btnBulkDelete.disabled = checked.length === 0;
+                selectAll.checked = checked.length === total.length && total.length > 0;
+            }
+
+            // 전체 선택/해제
+            selectAll.addEventListener('change', function() {
+                document.querySelectorAll('.item-checkbox').forEach(cb => {
+                    cb.checked = this.checked;
+                });
+                updateSelectionCount();
+            });
+
+            // 개별 체크박스 이벤트
+            document.querySelectorAll('.item-checkbox').forEach(cb => {
+                cb.addEventListener('change', updateSelectionCount);
+            });
+
+            // 선택 삭제 버튼
+            btnBulkDelete.onclick = async function() {
+                const checked = document.querySelectorAll('.item-checkbox:checked');
+                if (checked.length === 0) return;
+
+                const names = [];
+                checked.forEach(cb => names.push(cb.getAttribute('data-name')));
+                const namesList = names.length <= 3 
+                    ? names.join(', ') 
+                    : names.slice(0, 3).join(', ') + ` 외 ${names.length - 3}명`;
+
+                if (!confirm(`${checked.length}개의 진단 데이터를 삭제하시겠습니까?\n(${namesList})\n\n⚠️ 이 작업은 되돌릴 수 없습니다.`)) {
+                    return;
+                }
+
+                showLoading(`${checked.length}개 데이터를 삭제하고 있습니다...`);
+
+                try {
+                    const ids = [];
+                    checked.forEach(cb => ids.push(cb.getAttribute('data-id')));
+
+                    // 각 ID를 순차 삭제
+                    for (const id of ids) {
+                        await fetch('/api/delete-response', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ admin_code: currentAdminCode, response_id: id })
+                        });
+                    }
+
+                    // 대시보드 새로고침
+                    const refreshRes = await fetch('/api/admin-results', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ admin_code: currentAdminCode, team_code: currentTeamCode })
+                    });
+
+                    const refreshData = await refreshRes.json();
+                    hideLoading();
+
+                    if (refreshRes.ok) {
+                        showDashboard(currentTeamCode, refreshData);
+                    }
+
+                    alert(`${ids.length}개의 데이터가 삭제되었습니다.`);
+
+                } catch (err) {
+                    hideLoading();
+                    alert('삭제 중 오류: ' + err.message);
+                }
+            };
         }
 
         // ============================================
