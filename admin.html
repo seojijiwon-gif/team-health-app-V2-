@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>관리자 대시보드 - 팀 건강도 진단</title>
+    <meta name="description" content="팀 건강도 자가진단 워크시트 관리자 페이지. 팀원별 진단 결과 확인 및 팀 전체 평균 대시보드.">
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        /* 관리자 페이지 전용 스타일 */
+        .admin-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .admin-logo {
+            font-size: 1.8rem;
+            font-weight: 700;
+            background: linear-gradient(to right, #f59e0b, #ef4444);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+
+        .admin-subtitle {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+
+        /* 로그인 패널 */
+        .login-panel {
+            max-width: 420px;
+            margin: 3rem auto;
+        }
+
+        .login-panel .input-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .login-icon {
+            text-align: center;
+            font-size: 3rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .login-error {
+            color: var(--danger);
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+            display: none;
+        }
+
+        /* 대시보드 탭 */
+        .admin-tabs {
+            display: flex;
+            border-bottom: 2px solid var(--panel-border);
+            margin-bottom: 2rem;
+            gap: 0;
+        }
+
+        .admin-tab-btn {
+            flex: 1;
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1.05rem;
+            padding: 1rem 1.5rem;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            font-weight: 600;
+            font-family: var(--font-family);
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+
+        .admin-tab-btn:hover {
+            color: var(--text-main);
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .admin-tab-btn.active {
+            color: #f59e0b;
+            border-bottom-color: #f59e0b;
+        }
+
+        .admin-tab-pane {
+            display: none;
+        }
+
+        .admin-tab-pane.active {
+            display: block;
+            animation: fadeIn 0.4s ease;
+        }
+
+        /* 팀 정보 헤더 */
+        .team-info-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(245, 158, 11, 0.08);
+            border: 1px solid rgba(245, 158, 11, 0.2);
+            border-radius: 12px;
+            padding: 1rem 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .team-info-bar .team-code-display {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #f59e0b;
+        }
+
+        .team-info-bar .team-count {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+
+        .btn-logout {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #ef4444;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: var(--font-family);
+            transition: all 0.2s;
+        }
+
+        .btn-logout:hover {
+            background: rgba(239, 68, 68, 0.2);
+        }
+
+        /* 개별 결과 카드 */
+        .member-card {
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.2rem;
+            transition: all 0.3s ease;
+        }
+
+        .member-card:hover {
+            border-color: rgba(99, 102, 241, 0.3);
+            transform: translateX(4px);
+        }
+
+        .member-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .member-name {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        .member-date {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .member-scores {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 0.8rem;
+            margin-bottom: 1rem;
+        }
+
+        .mini-score {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 8px;
+            padding: 0.6rem;
+        }
+
+        .mini-score .label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-bottom: 0.2rem;
+        }
+
+        .mini-score .value {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #818cf8;
+        }
+
+        .member-detail {
+            margin-top: 0.8rem;
+            padding-top: 0.8rem;
+            border-top: 1px solid var(--panel-border);
+        }
+
+        .member-detail summary {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            cursor: pointer;
+            padding: 0.3rem 0;
+        }
+
+        .member-detail summary:hover {
+            color: var(--text-main);
+        }
+
+        .detail-content {
+            margin-top: 0.8rem;
+        }
+
+        .detail-item {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            padding: 0.8rem 1rem;
+            margin-bottom: 0.6rem;
+            font-size: 0.9rem;
+        }
+
+        .detail-item .detail-label {
+            color: #f59e0b;
+            font-weight: 600;
+            font-size: 0.8rem;
+            margin-bottom: 0.3rem;
+        }
+
+        .detail-item .detail-text {
+            color: #e2e8f0;
+            line-height: 1.5;
+        }
+
+        /* 팀 평균 대시보드 */
+        .avg-card {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--panel-border);
+            border-radius: 12px;
+            padding: 1.5rem 1rem;
+        }
+
+        .avg-card .avg-label {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+        }
+
+        .avg-card .avg-value {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: var(--text-main);
+        }
+
+        .avg-card .avg-bar {
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            margin-top: 0.8rem;
+            overflow: hidden;
+        }
+
+        .avg-card .avg-bar-fill {
+            height: 100%;
+            border-radius: 2px;
+            transition: width 0.8s ease;
+        }
+
+        /* 비어있는 상태 */
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: var(--text-muted);
+        }
+
+        .empty-state .empty-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        @media (max-width: 768px) {
+            .member-scores {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .team-info-bar {
+                flex-direction: column;
+                gap: 0.8rem;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+
+    <main id="app-container">
+        <!-- 관리자 로그인 -->
+        <section id="admin-login" class="step active fade-in">
+            <div class="admin-header">
+                <h1 class="admin-logo">🔒 관리자 대시보드</h1>
+                <p class="admin-subtitle">팀 건강도 자가진단 워크시트 관리 시스템</p>
+            </div>
+
+            <div class="glass-panel login-panel">
+                <div class="login-icon">🛡️</div>
+                <div class="input-group">
+                    <label for="admin-code" class="input-label">관리자 코드</label>
+                    <input type="password" id="admin-code" class="text-input" placeholder="관리자 코드를 입력하세요"
+                        maxlength="10">
+                </div>
+                <div class="input-group">
+                    <label for="admin-team-code" class="input-label">조회할 팀 코드</label>
+                    <input type="text" id="admin-team-code" class="text-input" placeholder="예: TEAM-A, 마케팅팀"
+                        maxlength="30">
+                </div>
+                <div id="login-error" class="login-error">⚠️ 오류 메시지</div>
+                <div class="actions center" style="margin-top: 2rem;">
+                    <button id="btn-admin-login" class="btn btn-primary" disabled
+                        style="width: 100%; background: linear-gradient(135deg, #f59e0b, #ef4444);">
+                        데이터 조회하기
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 관리자 대시보드 -->
+        <section id="admin-dashboard" class="step fade-in" style="display:none">
+            <div class="admin-header">
+                <h1 class="admin-logo">📊 팀 건강도 대시보드</h1>
+            </div>
+
+            <!-- 팀 정보 바 -->
+            <div class="team-info-bar">
+                <div>
+                    <div class="team-code-display" id="dash-team-code"></div>
+                    <div class="team-count" id="dash-team-count"></div>
+                </div>
+                <button class="btn-logout" id="btn-back-login">← 다른 팀 조회</button>
+            </div>
+
+            <!-- 탭 네비게이션 -->
+            <div class="admin-tabs">
+                <button class="admin-tab-btn active" data-tab="tab-individual" id="tab-btn-individual">👤 개별 진단
+                    결과</button>
+                <button class="admin-tab-btn" data-tab="tab-team-avg" id="tab-btn-team-avg">📈 팀 전체 평균</button>
+            </div>
+
+            <!-- 탭 1: 개별 진단 결과 -->
+            <div id="tab-individual" class="admin-tab-pane active">
+                <div id="individual-list"></div>
+            </div>
+
+            <!-- 탭 2: 팀 전체 평균 -->
+            <div id="tab-team-avg" class="admin-tab-pane">
+                <div class="glass-panel">
+                    <h3 style="margin-bottom: 1.5rem; font-weight: 700;">📊 4대 영역 팀 평균 점수</h3>
+                    <div id="team-avg-cards" class="cards-grid" style="margin-bottom: 2rem;"></div>
+                    <div class="chart-wrapper" style="max-width: 450px; margin: 0 auto;">
+                        <canvas id="teamRadarChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- 워크숍 응답 요약 -->
+                <div class="glass-panel">
+                    <h3 style="margin-bottom: 1.5rem; font-weight: 700;">💬 워크숍 응답 요약</h3>
+                    <div id="workshop-summary"></div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Toast -->
+    <div id="toast" class="toast">오류가 발생했습니다.</div>
+
+    <!-- 로딩 오버레이 -->
+    <div id="global-loading" class="overlay" style="display:none">
+        <div class="loader-box">
+            <span class="loader lg"></span>
+            <p id="loading-msg" class="mt-3">데이터를 불러오는 중...</p>
+        </div>
+    </div>
+
+    <script>
+        // ============================================
+        // 관리자 페이지 스크립트
+        // ============================================
+
+        // 영역 이름 매핑 (한국어)
+        const AREA_NAMES = {
+            comm: '소통 & 협업',
+            safety: '심리적 안전감',
+            align: '목표 & 방향 정렬',
+            leadership: '리더십 & 관계'
+        };
+
+        // 영역별 색상
+        const AREA_COLORS = {
+            comm: '#6366f1',
+            safety: '#10b981',
+            align: '#f59e0b',
+            leadership: '#e879f9'
+        };
+
+        // 딜레마 텍스트 (app.js와 동일한 데이터)
+        const DILEMMAS = {
+            1: "동료의 업무 실수를 발견했지만, 팀의 분위기를 망치고 싶지 않아 모른 척해야 할지 고민됩니다.",
+            2: "당장 오늘까지 끝내야 하는 내 업무가 산더미인데, 도움을 요청하는 옆자리 동료를 도와줘야 할지 갈등이 생깁니다.",
+            3: "고객사가 무리한 요구를 하는데, 회사 규정을 지켜 거절해야 할지 아니면 성과를 위해 편법을 써서라도 들어줘야 할지 어렵습니다.",
+            4: "더 효율적이고 빠른 방법이 생각났지만, 괜히 나섰다가 기존 방식을 고수하는 선배들에게 '튀는 사람'으로 찍힐까 봐 망설여집니다.",
+            5: "팀 프로젝트의 성공을 위해 나의 휴가를 취소하고 기여해야 할지, 아니면 약속된 나의 개인적인 권리를 지켜야 할지 선택하기 힘듭니다.",
+            6: "상사의 의견이 명백히 틀렸다고 생각되지만, 솔직하게 말씀드렸다가 올 피드백이나 인사고과가 두려워 입을 닫게 됩니다.",
+            7: "새로운 기술이나 툴(AI 등)을 배워서 적용해보고 싶지만, 당장 눈앞의 루틴한 업무를 처리하느라 배울 시간을 내기가 불가능합니다.",
+            8: "우리 팀에 유리하지만 타 부서에는 손해인 정보를 알게 되었을 때, 이를 공유해야 할지 우리 팀의 이익을 위해 숨겨야 할지 고민입니다.",
+            9: "개인적인 성장을 위해 다른 팀으로 직무 전환을 하고 싶지만, 나를 믿고 의지해온 현재 팀원들에 대한 미안함 때문에 주저하게 됩니다.",
+            10: "보고서의 퀄리티를 완벽하게 높이고 싶지만, 정해진 마감 기한을 맞추기 위해 적당한 선에서 타협해야 하는 상황이 괴롭습니다.",
+            11: "친한 동료가 사내 규정을 살짝 어기는 것을 보았을 때, 원칙대로 신고해야 할지 동료 간의 의리를 지켜야 할지 머리가 복잡합니다.",
+            12: "회사의 비전과 핵심가치는 공감하지만, 당장 나에게 주어지는 보상이나 처우가 만족스럽지 않아 몰입하기가 어렵습니다.",
+            13: "회의 시간에 좋은 아이디어가 떠올랐지만, \"그거 예전에 해봤는데 안 됐어\"라는 비난을 들을까 봐 안전하게 침묵을 선택합니다.",
+            14: "내가 낸 성과를 팀 전체의 공으로 돌려야 할지, 아니면 나의 확실한 고과를 위해 내 지분을 명확히 주장해야 할지 갈등됩니다.",
+            15: "업무 효율을 높이기 위해 메신저로 빠르게 소통하고 싶지만, 대면 보고와 격식을 중요시하는 조직 문화 때문에 불필요한 시간을 씁니다.",
+            16: "도전적인 목표를 세워 혁신하고 싶지만, 실패했을 때 돌아올 책임 추궁이 무서워 안전하고 달성 가능한 목표만 세우게 됩니다.",
+            17: "퇴근 후나 주말에 업무 연락이 왔을 때, 책임감 있게 응답해야 할지 나의 사생활을 보호하기 위해 무시해야 할지 고민스럽습니다.",
+            18: "회사의 오래된 관행이 비효율적이라고 느껴지지만, \"원래 우리 회사는 그래\"라는 분위기에 순응하며 변화를 포기하게 됩니다.",
+            19: "나보다 성과가 낮은 동료가 좋은 평가를 받는 불공정한 상황을 보았을 때, 문제를 제기해야 할지 아니면 참는 것이 미덕인지 갈등합니다.",
+            20: "회사가 강조하는 '자율성'을 믿고 스스로 판단해 일을 처리하고 싶지만, 결국 모든 것을 확인받아야 하는 마이크로 매니징 시스템 사이에서 혼란을 느낍니다."
+        };
+
+        // 워크숍 질문 라벨
+        const WORKSHOP_LABELS = {
+            q1: 'Q1. 마음읽기',
+            q2: 'Q2. 관점넓히기',
+            q3: 'Q3. 행동약속'
+        };
+
+        // ============================================
+        // 유틸리티 함수
+        // ============================================
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.innerText = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 4000);
+        }
+
+        function showLoading(msg) {
+            document.getElementById('loading-msg').innerText = msg;
+            document.getElementById('global-loading').style.display = 'flex';
+        }
+
+        function hideLoading() {
+            document.getElementById('global-loading').style.display = 'none';
+        }
+
+        // 날짜 포맷 (한국어)
+        function formatDate(dateStr) {
+            const d = new Date(dateStr);
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            const hours = String(d.getHours()).padStart(2, '0');
+            const mins = String(d.getMinutes()).padStart(2, '0');
+            return `${year}.${month}.${day} ${hours}:${mins}`;
+        }
+
+        // ============================================
+        // DOM 요소
+        // ============================================
+        const adminCodeInput = document.getElementById('admin-code');
+        const adminTeamCodeInput = document.getElementById('admin-team-code');
+        const btnLogin = document.getElementById('btn-admin-login');
+        const loginError = document.getElementById('login-error');
+
+        // 입력값 검증 (둘 다 입력해야 버튼 활성화)
+        function checkLoginInputs() {
+            const code = adminCodeInput.value.trim();
+            const team = adminTeamCodeInput.value.trim();
+            btnLogin.disabled = !(code.length >= 1 && team.length >= 1);
+        }
+
+        adminCodeInput.addEventListener('input', checkLoginInputs);
+        adminTeamCodeInput.addEventListener('input', checkLoginInputs);
+
+        // Enter 키로 로그인
+        adminTeamCodeInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !btnLogin.disabled) btnLogin.click();
+        });
+        adminCodeInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !btnLogin.disabled) btnLogin.click();
+        });
+
+        // ============================================
+        // 로그인 처리
+        // ============================================
+        btnLogin.addEventListener('click', async () => {
+            const adminCode = adminCodeInput.value.trim();
+            const teamCode = adminTeamCodeInput.value.trim();
+
+            loginError.style.display = 'none';
+            showLoading('팀 데이터를 조회하고 있습니다...');
+
+            try {
+                const res = await fetch('/api/admin-results', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ admin_code: adminCode, team_code: teamCode })
+                });
+
+                const data = await res.json();
+                hideLoading();
+
+                if (!res.ok) {
+                    loginError.innerText = '⚠️ ' + (data.error || '오류가 발생했습니다.');
+                    loginError.style.display = 'block';
+                    return;
+                }
+
+                if (data.count === 0) {
+                    loginError.innerText = '⚠️ 해당 팀 코드로 제출된 진단 결과가 없습니다.';
+                    loginError.style.display = 'block';
+                    return;
+                }
+
+                // 대시보드 전환
+                showDashboard(teamCode, data);
+
+            } catch (err) {
+                hideLoading();
+                loginError.innerText = '⚠️ 서버에 연결할 수 없습니다. 잠시 후 다시 시도해주세요.';
+                loginError.style.display = 'block';
+            }
+        });
+
+        // ============================================
+        // 대시보드 표시
+        // ============================================
+        let teamRadarChart = null;
+
+        function showDashboard(teamCode, data) {
+            // 로그인 숨기기 / 대시보드 보이기
+            document.getElementById('admin-login').style.display = 'none';
+            const dashboard = document.getElementById('admin-dashboard');
+            dashboard.style.display = 'block';
+            dashboard.classList.add('active', 'fade-in');
+
+            // 팀 정보 바
+            document.getElementById('dash-team-code').innerText = '팀 코드: ' + teamCode;
+            document.getElementById('dash-team-count').innerText = `총 ${data.count}명 참여`;
+
+            // 탭 1: 개별 결과 렌더링
+            renderIndividualList(data.responses);
+
+            // 탭 2: 팀 평균 렌더링
+            renderTeamAverage(data.team_averages, data.count);
+
+            // 워크숍 응답 요약
+            renderWorkshopSummary(data.responses);
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // ============================================
+        // 탭 1: 개별 결과 목록
+        // ============================================
+        function renderIndividualList(responses) {
+            const container = document.getElementById('individual-list');
+            container.innerHTML = '';
+
+            if (!responses || responses.length === 0) {
+                container.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-icon">📭</div>
+                    <p>아직 제출된 진단 결과가 없습니다.</p>
+                </div>`;
+                return;
+            }
+
+            responses.forEach((r, idx) => {
+                const avgs = r.area_averages || {};
+                const areas = ['comm', 'safety', 'align', 'leadership'];
+
+                // 점수 카드 HTML
+                let scoresHtml = '';
+                areas.forEach(aId => {
+                    const val = avgs[aId] !== undefined ? avgs[aId] : '-';
+                    scoresHtml += `
+                    <div class="mini-score">
+                        <div class="label">${AREA_NAMES[aId]}</div>
+                        <div class="value" style="color: ${AREA_COLORS[aId]}">${val}</div>
+                    </div>`;
+                });
+
+                // 상세 정보 (딜레마 + 워크숍)
+                let detailHtml = '';
+                if (r.dilemma_id && DILEMMAS[r.dilemma_id]) {
+                    detailHtml += `
+                    <div class="detail-item">
+                        <div class="detail-label">선택한 딜레마 #${r.dilemma_id}</div>
+                        <div class="detail-text">${DILEMMAS[r.dilemma_id]}</div>
+                    </div>`;
+                }
+
+                if (r.workshop_responses) {
+                    const ws = r.workshop_responses;
+                    ['q1', 'q2', 'q3'].forEach(qId => {
+                        if (ws[qId]) {
+                            detailHtml += `
+                            <div class="detail-item">
+                                <div class="detail-label">${WORKSHOP_LABELS[qId]}</div>
+                                <div class="detail-text">${ws[qId]}</div>
+                            </div>`;
+                        }
+                    });
+                }
+
+                const hasDetail = detailHtml.length > 0;
+                const detailSection = hasDetail ? `
+                <details class="member-detail">
+                    <summary>📋 딜레마 & 워크숍 상세 보기</summary>
+                    <div class="detail-content">${detailHtml}</div>
+                </details>` : '';
+
+                container.innerHTML += `
+                <div class="member-card">
+                    <div class="member-header">
+                        <div class="member-name">👤 ${r.user_name || '이름 없음'}</div>
+                        <div class="member-date">${r.created_at ? formatDate(r.created_at) : ''}</div>
+                    </div>
+                    <div class="member-scores">${scoresHtml}</div>
+                    ${detailSection}
+                </div>`;
+            });
+        }
+
+        // ============================================
+        // 탭 2: 팀 전체 평균
+        // ============================================
+        function renderTeamAverage(teamAvgs, count) {
+            const container = document.getElementById('team-avg-cards');
+            container.innerHTML = '';
+
+            const areas = ['comm', 'safety', 'align', 'leadership'];
+
+            areas.forEach(aId => {
+                const val = teamAvgs[aId] !== undefined ? teamAvgs[aId] : 0;
+                const percent = (val / 5) * 100;
+
+                container.innerHTML += `
+                <div class="avg-card">
+                    <div class="avg-label">${AREA_NAMES[aId]}</div>
+                    <div class="avg-value" style="color: ${AREA_COLORS[aId]}">${val}</div>
+                    <div class="avg-bar">
+                        <div class="avg-bar-fill" style="width: ${percent}%; background: ${AREA_COLORS[aId]}"></div>
+                    </div>
+                </div>`;
+            });
+
+            // 레이더 차트
+            const ctx = document.getElementById('teamRadarChart').getContext('2d');
+            if (teamRadarChart) teamRadarChart.destroy();
+
+            teamRadarChart = new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: areas.map(a => AREA_NAMES[a]),
+                    datasets: [{
+                        label: '팀 평균',
+                        data: areas.map(a => teamAvgs[a] || 0),
+                        backgroundColor: 'rgba(245, 158, 11, 0.2)',
+                        borderColor: '#f59e0b',
+                        pointBackgroundColor: '#f59e0b',
+                        borderWidth: 2.5,
+                        pointRadius: 5
+                    }]
+                },
+                options: {
+                    scales: {
+                        r: {
+                            angleLines: { color: 'rgba(255,255,255,0.1)' },
+                            grid: { color: 'rgba(255,255,255,0.1)' },
+                            pointLabels: { color: '#cbd5e1', font: { size: 13, weight: '600' } },
+                            ticks: { min: 0, max: 5, stepSize: 1, backdropColor: 'transparent', color: '#64748b' }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            labels: { color: '#f59e0b', font: { size: 13, weight: '500' } }
+                        }
+                    }
+                }
+            });
+        }
+
+        // ============================================
+        // 워크숍 응답 요약
+        // ============================================
+        function renderWorkshopSummary(responses) {
+            const container = document.getElementById('workshop-summary');
+            container.innerHTML = '';
+
+            // 워크숍을 완료한 응답만 필터링
+            const workshopDone = responses.filter(r => r.workshop_responses && (r.workshop_responses.q1 || r.workshop_responses.q2 || r.workshop_responses.q3));
+
+            if (workshopDone.length === 0) {
+                container.innerHTML = `
+                <div class="empty-state" style="padding: 1.5rem;">
+                    <p style="color: var(--text-muted);">아직 워크숍을 완료한 팀원이 없습니다.</p>
+                </div>`;
+                return;
+            }
+
+            container.innerHTML = `<p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;">${workshopDone.length}명의 팀원이 워크숍을 완료했습니다.</p>`;
+
+            // Q3(행동약속)를 모아서 보여주기 - 가장 핵심적인 항목
+            const actions = workshopDone
+                .filter(r => r.workshop_responses.q3)
+                .map(r => ({ name: r.user_name, action: r.workshop_responses.q3 }));
+
+            if (actions.length > 0) {
+                let html = '<h4 style="color: #818cf8; margin-bottom: 1rem; font-size: 1.05rem;">🎯 팀원들의 행동약속 (Q3)</h4>';
+                actions.forEach(a => {
+                    html += `
+                    <div class="detail-item">
+                        <div class="detail-label">👤 ${a.name}</div>
+                        <div class="detail-text">${a.action}</div>
+                    </div>`;
+                });
+                container.innerHTML += html;
+            }
+        }
+
+        // ============================================
+        // 탭 전환
+        // ============================================
+        document.querySelectorAll('.admin-tab-btn').forEach(btn => {
+            btn.addEventListener('click', function () {
+                // 버튼 활성화
+                document.querySelectorAll('.admin-tab-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+
+                // 탭 컨텐츠 전환
+                document.querySelectorAll('.admin-tab-pane').forEach(p => p.classList.remove('active'));
+                document.getElementById(this.getAttribute('data-tab')).classList.add('active');
+            });
+        });
+
+        // ============================================
+        // 다른 팀 조회 (로그아웃)
+        // ============================================
+        document.getElementById('btn-back-login').addEventListener('click', () => {
+            document.getElementById('admin-dashboard').style.display = 'none';
+            document.getElementById('admin-dashboard').classList.remove('active');
+
+            const loginSection = document.getElementById('admin-login');
+            loginSection.style.display = 'block';
+            loginSection.classList.add('active', 'fade-in');
+
+            // 팀 코드 입력 초기화 (관리자 코드는 유지)
+            adminTeamCodeInput.value = '';
+            loginError.style.display = 'none';
+            btnLogin.disabled = true;
+            checkLoginInputs();
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+    </script>
+</body>
+
+</html>

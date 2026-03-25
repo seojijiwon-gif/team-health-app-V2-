@@ -1,5 +1,8 @@
-// app.js
+// app.js - 팀 건강도 자가진단 워크시트
 
+// ============================================
+// 설문 데이터 정의
+// ============================================
 const SURVEY_AREAS = [
     {
         id: 'comm', name: '소통 & 협업',
@@ -18,7 +21,7 @@ const SURVEY_AREAS = [
     },
     {
         id: 'leadership', name: '리더십 & 관계',
-        questions: ["16. 리더가 팀원 개개인의 상황과 어려움에 관심을 기울인다", "17. 리더로부터 성장에 도움이 되는 피드백을 받는다", "18. 팀원들 간의 관계가 신뢰를 기반으로 하고 있다", "19. 팀 내에서 공로와 기여가 적절하게 인정받는다", "20. 나는 이 팀에서 일하는 거시 의미 있다고 느낀다"],
+        questions: ["16. 리더가 팀원 개개인의 상황과 어려움에 관심을 기울인다", "17. 리더로부터 성장에 도움이 되는 피드백을 받는다", "18. 팀원들 간의 관계가 신뢰를 기반으로 하고 있다", "19. 팀 내에서 공로와 기여가 적절하게 인정받는다", "20. 나는 이 팀에서 일하는 것이 의미 있다고 느낀다"],
         dilemmas: [5, 7, 9, 12, 17]
     }
 ];
@@ -52,6 +55,11 @@ const WORKSHOP_Q = [
     { id: 'q3', targetProgress: 90, title: "Q3. 행동약속", text: "상황을 조금이라도 낫게 만들기 위해, 내일 바로 실천해볼 수 있는 아주 작은 행동은 무엇일까요?" }
 ];
 
+// ============================================
+// 전역 상태 변수
+// ============================================
+let teamCode = '';       // 팀 코드
+let userName = '';       // 사용자 이름
 let surveyIndex = 0;
 let surveyAnswers = { comm: [], safety: [], align: [], leadership: [] };
 let vulnerableAreaId = null;
@@ -59,8 +67,11 @@ let selectedDilemmaId = null;
 let workshopIndex = 0;
 let workshopResponses = { q1: "", q2: "", q3: "" };
 let areaAverages = {};
+let comparisonChart = null;
 
-// Utility
+// ============================================
+// 유틸리티 함수
+// ============================================
 function showToast(msg) {
     const toast = document.getElementById('toast');
     toast.innerText = msg;
@@ -68,37 +79,11 @@ function showToast(msg) {
     setTimeout(() => toast.classList.remove('show'), 4000);
 }
 
-// ----------------------------------------------------
-// Image Export Logic
-// ----------------------------------------------------
-document.getElementById('btn-download-img').addEventListener('click', async () => {
-    const targetArea = document.getElementById('report-capture-area');
-    showToast("이미지를 생성 중입니다. 잠시만 기다려주세요...");
-    
-    try {
-        const canvas = await html2canvas(targetArea, {
-            scale: 2, // 고해상도 리포트
-            backgroundColor: '#0d0f17', // 다크모드 배경색 매칭
-            logging: false,
-            useCORS: true
-        });
-        
-        const link = document.createElement('a');
-        link.download = '팀_건강도_솔루션_리포트.png';
-        link.href = canvas.toDataURL('image/png');
-        link.click();
-        
-        showToast("이미지 저장이 완료되었습니다! 🎉");
-    } catch (err) {
-        console.error("html2canvas err:", err);
-        showToast("이미지 저장 중 오류가 발생했습니다.");
-    }
-});
-
 function showGlobalLoading(msg) {
     document.getElementById('loading-msg').innerText = msg;
     document.getElementById('global-loading').style.display = 'flex';
 }
+
 function hideGlobalLoading() {
     document.getElementById('global-loading').style.display = 'none';
 }
@@ -112,6 +97,14 @@ function switchStep(stepId) {
     const target = document.getElementById(stepId);
     target.style.display = 'block';
     
+    // 랜딩 페이지에서는 헤더(진행률 바) 숨기기
+    const header = document.getElementById('main-header');
+    if (stepId === 'step-0') {
+        header.style.display = 'none';
+    } else {
+        header.style.display = 'block';
+    }
+
     setTimeout(() => {
         document.querySelectorAll('.step').forEach(s => {
             if (s.id !== stepId) s.style.display = 'none';
@@ -121,7 +114,49 @@ function switchStep(stepId) {
     }, 10);
 }
 
-// STEP 1: Survey Logic
+// ============================================
+// STEP 0: 랜딩 페이지
+// ============================================
+document.getElementById('btn-start').addEventListener('click', () => {
+    switchStep('step-code');
+    updateProgress(5);
+});
+
+// ============================================
+// STEP CODE: 팀 코드 + 이름 입력
+// ============================================
+const teamCodeInput = document.getElementById('team-code-input');
+const userNameInput = document.getElementById('user-name-input');
+const btnCodeNext = document.getElementById('btn-code-next');
+const btnCodeBack = document.getElementById('btn-code-back');
+
+// 입력값 검증 (둘 다 입력해야 다음 버튼 활성화)
+function checkCodeInputs() {
+    const codeVal = teamCodeInput.value.trim();
+    const nameVal = userNameInput.value.trim();
+    btnCodeNext.disabled = !(codeVal.length >= 1 && nameVal.length >= 1);
+}
+
+teamCodeInput.addEventListener('input', checkCodeInputs);
+userNameInput.addEventListener('input', checkCodeInputs);
+
+// "이전" 버튼: 랜딩 페이지로 돌아가기
+btnCodeBack.addEventListener('click', () => {
+    switchStep('step-0');
+});
+
+// "다음" 버튼: 설문 시작
+btnCodeNext.addEventListener('click', () => {
+    teamCode = teamCodeInput.value.trim();
+    userName = userNameInput.value.trim();
+    switchStep('step-1');
+    updateProgress(10);
+    renderSurvey();
+});
+
+// ============================================
+// STEP 1: 설문 로직
+// ============================================
 const btnNext1 = document.getElementById('btn-survey-next');
 const btnPrev1 = document.getElementById('btn-survey-prev');
 
@@ -147,7 +182,7 @@ function renderSurvey() {
     btnNext1.innerText = surveyIndex === 3 ? '진단 결과 확인하기' : '다음 단계';
     
     checkSurveyCompletion();
-    updateProgress((surveyIndex) * 10 + 10);
+    updateProgress(10 + (surveyIndex) * 8);
 }
 
 window.answerSurvey = function(areaId, qIndex, val) {
@@ -175,10 +210,15 @@ btnPrev1.addEventListener('click', () => {
     if (surveyIndex > 0) {
         surveyIndex--;
         renderSurvey();
+    } else {
+        // 첫 번째 설문에서 이전 누르면 팀 코드 입력으로 돌아가기
+        switchStep('step-code');
     }
 });
 
-// STEP 2: Results Logic
+// ============================================
+// STEP 2: 결과 분석 로직
+// ============================================
 let radarChart = null;
 
 function processResults() {
@@ -191,7 +231,7 @@ function processResults() {
         if (avg < minScore) { minScore = avg; vulnerableAreaId = area.id; }
     });
 
-    // Draw Chart
+    // 레이더 차트 그리기
     const ctx = document.getElementById('radarChart').getContext('2d');
     if (radarChart) radarChart.destroy();
     radarChart = new Chart(ctx, {
@@ -199,6 +239,7 @@ function processResults() {
         data: {
             labels: SURVEY_AREAS.map(a => a.name),
             datasets: [{
+                label: '나의 점수',
                 data: SURVEY_AREAS.map(a => areaAverages[a.id]),
                 backgroundColor: 'rgba(99, 102, 241, 0.3)',
                 borderColor: '#6366f1',
@@ -215,6 +256,7 @@ function processResults() {
         }
     });
 
+    // 점수 카드 생성
     const cardsContainer = document.getElementById('score-cards');
     cardsContainer.innerHTML = '';
     
@@ -229,11 +271,138 @@ function processResults() {
         `;
     });
 
-    updateProgress(45);
+    updateProgress(42);
     switchStep('step-2');
+
+    // 결과를 서버에 저장하고 팀 비교 데이터 불러오기
+    saveAndCompare();
 }
 
-// STEP 3: Dilemma Logic
+// 결과 저장 + 팀 비교
+async function saveAndCompare() {
+    const compSection = document.getElementById('team-comparison-section');
+    const compLoading = document.getElementById('comparison-loading');
+    const compEmpty = document.getElementById('comparison-empty');
+    const compCards = document.getElementById('comparison-cards');
+    
+    compSection.style.display = 'block';
+    compLoading.style.display = 'block';
+    compEmpty.style.display = 'none';
+    compCards.innerHTML = '';
+
+    try {
+        // 1. 결과 저장
+        await fetch('/api/save-response', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                team_code: teamCode,
+                user_name: userName,
+                survey_answers: surveyAnswers,
+                area_averages: areaAverages
+            })
+        });
+
+        // 2. 팀 결과 조회
+        const res = await fetch('/api/get-team-results', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ team_code: teamCode })
+        });
+        const data = await res.json();
+        
+        compLoading.style.display = 'none';
+
+        if (data.count <= 1) {
+            // 나만 진단한 경우
+            compEmpty.style.display = 'block';
+            return;
+        }
+
+        // 3. 비교 차트 그리기
+        renderComparisonChart(data.team_averages);
+        renderComparisonCards(data.team_averages, data.count);
+
+    } catch (err) {
+        compLoading.style.display = 'none';
+        compEmpty.style.display = 'block';
+        console.error('팀 비교 데이터 오류:', err);
+    }
+}
+
+function renderComparisonChart(teamAvgs) {
+    const ctx = document.getElementById('comparisonChart').getContext('2d');
+    if (comparisonChart) comparisonChart.destroy();
+    
+    comparisonChart = new Chart(ctx, {
+        type: 'radar',
+        data: {
+            labels: SURVEY_AREAS.map(a => a.name),
+            datasets: [
+                {
+                    label: '나의 점수',
+                    data: SURVEY_AREAS.map(a => areaAverages[a.id]),
+                    backgroundColor: 'rgba(99, 102, 241, 0.2)',
+                    borderColor: '#818cf8',
+                    pointBackgroundColor: '#818cf8',
+                    borderWidth: 2
+                },
+                {
+                    label: '팀 평균',
+                    data: SURVEY_AREAS.map(a => teamAvgs[a.id] || 0),
+                    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                    borderColor: '#10b981',
+                    pointBackgroundColor: '#10b981',
+                    borderWidth: 2
+                }
+            ]
+        },
+        options: {
+            scales: {
+                r: {
+                    angleLines: { color: 'rgba(255,255,255,0.1)' },
+                    grid: { color: 'rgba(255,255,255,0.1)' },
+                    pointLabels: { color: '#cbd5e1', font: { size: 12 } },
+                    ticks: { min: 0, max: 5, stepSize: 1, backdropColor: 'transparent', color: '#64748b' }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: true,
+                    labels: { color: '#94a3b8', font: { size: 12 } }
+                }
+            }
+        }
+    });
+}
+
+function renderComparisonCards(teamAvgs, count) {
+    const container = document.getElementById('comparison-cards');
+    container.innerHTML = `<div style="grid-column: 1 / -1; text-align: center; color: var(--text-muted); font-size: 0.9rem; margin-bottom: 0.5rem;">총 ${count}명의 팀원이 진단에 참여했습니다</div>`;
+    
+    SURVEY_AREAS.forEach(area => {
+        const my = areaAverages[area.id];
+        const team = +(teamAvgs[area.id] || 0).toFixed(1);
+        const diff = +(my - team).toFixed(1);
+        let diffClass = 'diff-equal';
+        let diffText = '동일';
+        if (diff > 0) { diffClass = 'diff-positive'; diffText = `+${diff} 높음`; }
+        else if (diff < 0) { diffClass = 'diff-negative'; diffText = `${diff} 낮음`; }
+
+        container.innerHTML += `
+            <div class="score-card comparison-card">
+                <h4>${area.name}</h4>
+                <div class="my-score">${my}</div>
+                <div class="team-score">팀 평균 ${team}</div>
+                <div class="diff-indicator ${diffClass}">${diffText}</div>
+            </div>
+        `;
+    });
+}
+
+// ============================================
+// STEP 3: 딜레마 선택 로직
+// ============================================
 document.getElementById('btn-to-dilemma').addEventListener('click', () => {
     const area = SURVEY_AREAS.find(a => a.id === vulnerableAreaId);
     document.getElementById('vuln-area-display').innerText = `[ ${area.name} ] 영역의 핵심 딜레마`;
@@ -264,7 +433,9 @@ document.getElementById('btn-start-workshop').addEventListener('click', () => {
     switchStep('step-4');
 });
 
-// STEP 4: AI Workshop Logic
+// ============================================
+// STEP 4: AI 워크숍 로직
+// ============================================
 function switchTab(tabId) {
     document.querySelectorAll('.tab-btn').forEach(b => {
         if(b.getAttribute('data-tab') === tabId) b.classList.add('active');
@@ -300,7 +471,7 @@ function renderWorkshopQ() {
     
     document.getElementById('tab-feedback-btn').disabled = true;
     
-    // Reset Hint tab
+    // 힌트 탭 초기화
     document.getElementById('hint-empty-state').style.display = 'block';
     document.getElementById('hint-loading').style.display = 'none';
     document.getElementById('hint-results').style.display = 'none';
@@ -315,7 +486,7 @@ function renderWorkshopQ() {
     }
 }
 
-// AI API Call wrapper
+// AI API 호출 래퍼
 async function callAI(payload) {
     try {
         const res = await fetch('/api/feedback', {
@@ -332,7 +503,7 @@ async function callAI(payload) {
     }
 }
 
-// Load Recommendations
+// AI 추천 답변 불러오기
 document.getElementById('btn-load-hints').addEventListener('click', async () => {
     document.getElementById('hint-empty-state').style.display = 'none';
     document.getElementById('hint-loading').style.display = 'block';
@@ -373,7 +544,7 @@ document.getElementById('btn-load-hints').addEventListener('click', async () => 
     }
 });
 
-// Submit Answer
+// 답변 제출
 btnSubmitAnswer.addEventListener('click', async () => {
     const text = answerInput.value.trim();
     if (!text) return;
@@ -425,7 +596,9 @@ btnNextQuestion.addEventListener('click', () => {
     }
 });
 
-// STEP 5: Final Report Logic
+// ============================================
+// STEP 5: 최종 리포트 로직
+// ============================================
 async function generateFinalReport() {
     showGlobalLoading('관점을 종합하여 솔루션 리포트를 작성 중입니다...');
     document.getElementById('final-dilemma-block').innerText = `"${DILEMMAS[selectedDilemmaId]}"`;
@@ -472,6 +645,9 @@ async function generateFinalReport() {
 
         document.getElementById('final-report-content').innerHTML = reportHtml;
         
+        // 워크숍 응답까지 포함하여 최종 결과 업데이트
+        updateFinalResponse();
+
         updateProgress(100);
         switchStep('step-5');
 
@@ -481,5 +657,55 @@ async function generateFinalReport() {
     }
 }
 
-// Init
-renderSurvey();
+// 최종 결과를 서버에 업데이트 (딜레마 + 워크숍 응답 포함)
+async function updateFinalResponse() {
+    try {
+        await fetch('/api/save-response', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                team_code: teamCode,
+                user_name: userName,
+                survey_answers: surveyAnswers,
+                area_averages: areaAverages,
+                dilemma_id: selectedDilemmaId,
+                workshop_responses: workshopResponses,
+                is_update: true
+            })
+        });
+    } catch (err) {
+        console.error('최종 결과 저장 오류:', err);
+    }
+}
+
+// ============================================
+// 이미지 내보내기
+// ============================================
+document.getElementById('btn-download-img').addEventListener('click', async () => {
+    const targetArea = document.getElementById('report-capture-area');
+    showToast("이미지를 생성 중입니다. 잠시만 기다려주세요...");
+    
+    try {
+        const canvas = await html2canvas(targetArea, {
+            scale: 2,
+            backgroundColor: '#0d0f17',
+            logging: false,
+            useCORS: true
+        });
+        
+        const link = document.createElement('a');
+        link.download = '팀_건강도_솔루션_리포트.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+        
+        showToast("이미지 저장이 완료되었습니다! 🎉");
+    } catch (err) {
+        console.error("html2canvas err:", err);
+        showToast("이미지 저장 중 오류가 발생했습니다.");
+    }
+});
+
+// ============================================
+// 초기화 - 랜딩 페이지에서는 헤더 숨기기
+// ============================================
+document.getElementById('main-header').style.display = 'none';
