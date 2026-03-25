@@ -96,6 +96,24 @@
             animation: fadeIn 0.4s ease;
         }
 
+        /* 삭제 버튼 */
+        .btn-delete {
+            background: none;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #ef4444;
+            font-size: 0.85rem;
+            padding: 0.3rem 0.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            line-height: 1;
+        }
+
+        .btn-delete:hover {
+            background: rgba(239, 68, 68, 0.15);
+            border-color: #ef4444;
+        }
+
         /* 팀 정보 헤더 */
         .team-info-bar {
             display: flex;
@@ -543,8 +561,12 @@
         // 대시보드 표시
         // ============================================
         let teamRadarChart = null;
+        let currentAdminCode = '';
+        let currentTeamCode = '';
 
         function showDashboard(teamCode, data) {
+            currentTeamCode = teamCode;
+            currentAdminCode = adminCodeInput.value.trim();
             // 로그인 숨기기 / 대시보드 보이기
             document.getElementById('admin-login').style.display = 'none';
             const dashboard = document.getElementById('admin-dashboard');
@@ -629,10 +651,14 @@
                 </details>` : '';
 
                 container.innerHTML += `
-                <div class="member-card">
+                <div class="member-card" id="card-${r.id}">
                     <div class="member-header">
                         <div class="member-name">👤 ${r.user_name || '이름 없음'}</div>
-                        <div class="member-date">${r.created_at ? formatDate(r.created_at) : ''}</div>
+                        <div style="display:flex; align-items:center; gap:0.8rem;">
+                            <div class="member-date">${r.created_at ? formatDate(r.created_at) : ''}</div>
+                            <button class="btn-delete" onclick="deleteResponse('${r.id}', '${(r.user_name || '이름 없음').replace(/'/g, "\\'")}')"
+                                title="이 데이터 삭제">🗑️</button>
+                        </div>
                     </div>
                     <div class="member-scores">${scoresHtml}</div>
                     ${detailSection}
@@ -772,6 +798,59 @@
 
             window.scrollTo({ top: 0, behavior: 'smooth' });
         });
+
+        // ============================================
+        // 개별 결과 삭제
+        // ============================================
+        window.deleteResponse = async function(responseId, userName) {
+            if (!confirm(`"${userName}"님의 진단 데이터를 삭제하시겠습니까?\n\n⚠️ 이 작업은 되돌릴 수 없습니다.`)) {
+                return;
+            }
+
+            showLoading('데이터를 삭제하고 있습니다...');
+
+            try {
+                const res = await fetch('/api/delete-response', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        admin_code: currentAdminCode,
+                        response_id: responseId
+                    })
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    hideLoading();
+                    alert('삭제 실패: ' + (data.error || '오류가 발생했습니다.'));
+                    return;
+                }
+
+                // 삭제 성공 → 대시보드 새로고침
+                const refreshRes = await fetch('/api/admin-results', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        admin_code: currentAdminCode,
+                        team_code: currentTeamCode
+                    })
+                });
+
+                const refreshData = await refreshRes.json();
+                hideLoading();
+
+                if (refreshRes.ok) {
+                    showDashboard(currentTeamCode, refreshData);
+                }
+
+                alert('삭제되었습니다.');
+
+            } catch (err) {
+                hideLoading();
+                alert('서버 연결 오류: ' + err.message);
+            }
+        };
     </script>
 </body>
 

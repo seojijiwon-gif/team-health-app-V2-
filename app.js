@@ -879,3 +879,49 @@ document.getElementById('btn-download-img').addEventListener('click', async () =
 // 초기화 - 랜딩 페이지에서는 헤더 숨기기
 // ============================================
 document.getElementById('main-header').style.display = 'none';
+
+// ============================================
+// 관리자 대시보드 진입 모달
+// ============================================
+const adminModal = document.getElementById('admin-modal-overlay');
+const adminModalCode = document.getElementById('admin-modal-code');
+const adminModalError = document.getElementById('admin-modal-error');
+
+document.getElementById('btn-admin-entry').addEventListener('click', () => {
+    adminModal.style.display = 'flex';
+    adminModalCode.value = '';
+    adminModalError.style.display = 'none';
+    adminModalCode.focus();
+});
+
+document.getElementById('admin-modal-cancel').addEventListener('click', () => {
+    adminModal.style.display = 'none';
+});
+
+// 모달 외부 클릭 시 닫기
+adminModal.addEventListener('click', (e) => {
+    if (e.target === adminModal) adminModal.style.display = 'none';
+});
+
+// ESC 키로 닫기
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && adminModal.style.display === 'flex') {
+        adminModal.style.display = 'none';
+    }
+});
+
+// Enter 키로 확인
+adminModalCode.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') document.getElementById('admin-modal-confirm').click();
+});
+
+document.getElementById('admin-modal-confirm').addEventListener('click', () => {
+    const code = adminModalCode.value.trim();
+    if (code === '0000') {
+        window.location.href = '/admin.html';
+    } else {
+        adminModalError.style.display = 'block';
+        adminModalCode.value = '';
+        adminModalCode.focus();
+    }
+});
